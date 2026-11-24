@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Memory Match</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;700&display=swap">
+<style>
+:root{
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  --bg:#eef1ff; --panel:#ffffff; --text:#1d2250; --muted:#5b6090;
+  --back:#3b4bc8; --back2:#5a6bf0; --face:#fff8e1; --ok:#1fae8f; --okbg:#d9f7ee; --accent:#ffc93c; --line:#d5daf7;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#161a3a; --panel:#20265a; --text:#eef0ff; --muted:#aab0e6;
+    --back:#5a6bf0; --back2:#7b89ff; --face:#2b3270; --ok:#35d0ae; --okbg:#18463f; --line:#343c80;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#161a3a; --panel:#20265a; --text:#eef0ff; --muted:#aab0e6;
+  --back:#5a6bf0; --back2:#7b89ff; --face:#2b3270; --ok:#35d0ae; --okbg:#18463f; --line:#343c80;
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;min-height:100vh;background:var(--bg);color:var(--text);font-family:"Fredoka",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;display:flex;justify-content:center;padding:16px}
+main{width:100%;max-width:520px}
+h1{font-size:clamp(1.6rem,6vw,2.1rem);margin:8px 0 4px;letter-spacing:.2px}
+.sub{margin:0 0 14px;color:var(--muted);font-weight:500}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+.stat{background:var(--panel);border:2px solid var(--line);border-radius:14px;padding:8px 6px;text-align:center}
+.stat b{display:block;font-size:1.35rem}
+.stat span{font-size:.8rem;color:var(--muted)}
+.board{display:grid;grid-template-columns:repeat(4,1fr);gap:clamp(6px,2vw,12px);perspective:900px}
+.card{aspect-ratio:1;border:0;padding:0;background:none;cursor:pointer;position:relative;transform-style:preserve-3d;transition:transform .35s;border-radius:16px;font:inherit;-webkit-tap-highlight-color:transparent}
+.card:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.card.open,.card.done{transform:rotateY(180deg)}
+.f{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;border-radius:16px;backface-visibility:hidden;-webkit-backface-visibility:hidden}
+.back{background:linear-gradient(135deg,var(--back),var(--back2));color:#fff;font-size:1.6rem;font-weight:700;box-shadow:0 3px 0 rgba(0,0,0,.18)}
+.face{background:var(--face);transform:rotateY(180deg);font-size:clamp(1.8rem,9vw,2.6rem);border:3px solid var(--accent)}
+.card.done .face{background:var(--okbg);border-color:var(--ok)}
+.bar{display:flex;gap:8px;margin-top:14px}
+button.btn{flex:1;font:inherit;font-weight:700;font-size:1rem;padding:12px;border:0;border-radius:14px;background:var(--accent);color:#1d2250;cursor:pointer;box-shadow:0 3px 0 rgba(0,0,0,.18)}
+button.btn:active{transform:translateY(2px);box-shadow:none}
+button.btn.alt{background:var(--panel);color:var(--text);border:2px solid var(--line);box-shadow:none}
+.help{margin-top:14px;background:var(--panel);border:2px solid var(--line);border-radius:14px;padding:10px 14px;color:var(--muted);font-size:.92rem;line-height:1.5}
+.help b{color:var(--text)}
+.modal{position:fixed;inset:0;background:rgba(10,12,40,.6);display:none;align-items:center;justify-content:center;padding:20px;z-index:20}
+.modal.show{display:flex}
+.box{background:var(--panel);border-radius:20px;padding:22px;max-width:340px;width:100%;text-align:center}
+.box h2{margin:0 0 6px;font-size:1.6rem}
+.box p{margin:6px 0;color:var(--muted)}
+.box .big{font-size:1.1rem;color:var(--text)}
+.new{color:var(--ok);font-weight:700}
+@media (prefers-reduced-motion:reduce){.card{transition:none}}
+</style>
+</head>
+<body>
+<main>
+  <h1>Memory Match</h1>
+  <p class="sub">Temukan semua pasangan kartu secepat mungkin.</p>
+
+  <div class="stats" aria-live="polite">
+    <div class="stat"><b id="time">0</b><span>Detik</span></div>
+    <div class="stat"><b id="moves">0</b><span>Langkah</span></div>
+    <div class="stat"><b id="best">–</b><span>Rekor tercepat</span></div>
+  </div>
+
+  <div class="board" id="board"></div>
+
+  <div class="bar">
+    <button class="btn" id="restart">Mulai Ulang</button>
+    <button class="btn alt" id="reset" title="Hapus rekor tersimpan">Hapus Rekor</button>
+  </div>
+
+  <div class="help">
+    <b>Cara bermain:</b> Ketuk dua kartu untuk membukanya. Jika gambarnya sama, kartu tetap terbuka. Jika beda, kartu tertutup lagi. Buka semua pasangan dengan waktu dan langkah sesedikit mungkin.
+  </div>
+</main>
+
+<div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="mt">
+  <div class="box">
+    <h2 id="mt">Selamat!</h2>
+    <p class="big" id="mres"></p>
+    <p id="mnew"></p>
+    <button class="btn" id="again" style="margin-top:12px;width:100%">Main Lagi</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  var ICONS=["🐱","🚀","🍕","⚽","🎸","🌈","🐳","🍩"];
+  var KEY="memorymatch.best";
+  var board=document.getElementById("board");
+  var elTime=document.getElementById("time"),elMoves=document.getElementById("moves"),elBest=document.getElementById("best");
+  var modal=document.getElementById("modal");
+  var first=null,lock=false,moves=0,pairs=0,start=0,timer=null,seconds=0;
+
+  function loadBest(){
+    try{var v=localStorage.getItem(KEY);return v?JSON.parse(v):null}catch(e){return null}
+  }
+  function saveBest(b){
+    try{localStorage.setItem(KEY,JSON.stringify(b))}catch(e){}
+  }
+  function showBest(){
+    var b=loadBest();
+    elBest.textContent=b?b.time+" dtk":"–";
+  }
+  function shuffle(a){
+    for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t}
+    return a;
+  }
+  function stopTimer(){clearInterval(timer);timer=null}
+  function tick(){
+    seconds=Math.floor((Date.now()-start)/1000);
+    elTime.textContent=seconds;
+  }
+  function newGame(){
+    stopTimer();
+    first=null;lock=false;moves=0;pairs=0;seconds=0;start=0;
+    elTime.textContent="0";elMoves.textContent="0";
+    modal.classList.remove("show");
+    board.innerHTML="";
+    shuffle(ICONS.concat(ICONS)).forEach(function(icon,i){
+      var c=document.createElement("button");
+      c.className="card";
+      c.dataset.icon=icon;
+      c.setAttribute("aria-label","Kartu "+(i+1)+", tertutup");
+      c.innerHTML='<span class="f back">?</span><span class="f face">'+icon+'</span>';
+      c.addEventListener("click",function(){flip(c)});
+      board.appendChild(c);
+    });
+    showBest();
+  }
+  function flip(c){
+    if(lock||c===first||c.classList.contains("done")||c.classList.contains("open"))return;
+    if(!timer){start=Date.now();timer=setInterval(tick,250)}
+    c.classList.add("open");
+    c.setAttribute("aria-label","Kartu terbuka: "+c.dataset.icon);
+    if(!first){first=c;return}
+    moves++;elMoves.textContent=moves;
+    var a=first,b=c;first=null;
+    if(a.dataset.icon===b.dataset.icon){
+      a.classList.replace("open","done");b.classList.replace("open","done");
+      pairs++;
+      if(pairs===ICONS.length)setTimeout(win,500);
+    }else{
+      lock=true;
+      setTimeout(function(){
+        a.classList.remove("open");b.classList.remove("open");
+        a.setAttribute("aria-label","Kartu tertutup");b.setAttribute("aria-label","Kartu tertutup");
+        lock=false;
+      },800);
+    }
+  }
+  function win(){
+    stopTimer();tick();
+    var b=loadBest(),isNew=!b||seconds<b.time||(seconds===b.time&&moves<b.moves);
+    if(isNew)saveBest({time:seconds,moves:moves});
+    document.getElementById("mres").textContent="Selesai dalam "+seconds+" detik dengan "+moves+" langkah.";
+    var n=document.getElementById("mnew");
+    n.textContent=isNew?"Rekor baru tersimpan!":"Rekor terbaikmu: "+b.time+" detik, "+b.moves+" langkah.";
+    n.className=isNew?"new":"";
+    modal.classList.add("show");
+    showBest();
+  }
+  document.getElementById("restart").addEventListener("click",newGame);
+  document.getElementById("again").addEventListener("click",newGame);
+  document.getElementById("reset").addEventListener("click",function(){
+    try{localStorage.removeItem(KEY)}catch(e){}
+    showBest();
+  });
+  newGame();
+})();
+</script>
+</body>
+</html>
